@@ -1,0 +1,135 @@
+---
+title: 'Task 1: Oil spills in CA (PELEGRI)'
+author: "Patrick Pelegri-O'Day"
+date: "3/1/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(raster)
+library(tidyverse)
+library(here)
+library(broom)
+library(sf)
+library(tmap)
+library(spatstat)
+library(maptools)
+```
+
+### Overview
+
+This report visualizes data on oil spills in California recorded in 2008 in the Oil Spill Prevention and Response (OSPR) Incident Tracking database. An oil spill incident in this dataset is defined as "a discharge or threatened discharge of petroleum or other deleterious material into the waters of the state."
+
+**Citation:** Oil Spill Incident Tracking [ds394], 2009-07-23. 2008 Edition.
+
+### Setup
+
+Read in data
+```{r}
+oil_raw_sf <- read_sf(here('data', 'ds394', 'ds394.shp'))
+
+oil_sf <- oil_raw_sf %>% 
+  janitor::clean_names()
+
+counties_sf <- read_sf(here('data/counties/CA_Counties_TIGER2016.shp'))
+
+counties_subset_sf <- counties_sf %>% 
+  janitor::clean_names() %>% 
+  select(county_name = name, land_area = aland)
+```
+
+Set coordinate system
+```{r}
+# st_crs(oil_sf) # EPSG is 4269
+# 
+# st_crs(counties_subset_sf) # EPSG is 4326
+
+### Projections are different. To align them, we take the CA county projection and apply it to the oil spill data.
+
+oil_4326_sf <- st_transform(oil_sf, st_crs(counties_subset_sf))
+```
+
+### Visual analysis
+
+Plot with tmap
+```{r}
+tmap_mode(mode = 'view')
+tm_shape(counties_subset_sf) + 
+  tm_borders() +
+  tm_fill('land_area', 
+          title = "Land Area (meters squared)",
+          palette = 'BuGn') +
+  tm_borders(col = 'black') +
+tm_shape(oil_4326_sf) +
+  tm_dots(col = 'darkslateblue')
+```
+
+**Figure 1:** This interactive map shows oil spills recorded in California in 2008 by the California Department of Fish and Wildlife.
+
+Make chloropleth map based on count of inland spill events by county
+```{r}
+# Join the spill sf and county sf
+county_spills_sf <- counties_subset_sf %>% 
+  st_join(oil_4326_sf)
+
+# Only retain inland spills
+inland_spills_sf <- county_spills_sf %>% 
+  filter(inlandmari == 'Inland') %>% 
+  group_by(county_name) %>% 
+  summarize(spill_count = sum(!is.na(dfgcontrol)))
+
+ggplot(data = inland_spills_sf) +
+  geom_sf(aes(fill = spill_count), color = 'white', size = 0.1) + 
+  scale_fill_gradientn(colors = c('lightgrey', 'darkgoldenrod2', 'darkgoldenrod4')) +
+  theme_minimal() + 
+  labs(fill = 'Number of inland oil spills')
+```
+
+**Figure 2:** Map of inland oil spills by county in 2008. Counties with a greater number of spills are shaded with a darker color.
+
+Combine the two datasets as a spatial point pattern
+```{r}
+# Convert oil spills sf into a spatial point pattern
+oil_sp <- as(oil_4326_sf, 'Spatial')
+oil_ppp <- as(oil_sp, 'ppp')
+
+# Convert counties sf into a window
+counties_sp <- as(counties_subset_sf, 'Spatial')
+counties_win <- as(counties_sp, 'owin')
+
+# Combine
+oil_counties_ppp <- ppp(oil_ppp$x, oil_ppp$y, window = counties_win)
+```
+
+Make the G function
+```{r}
+# QUESTION: What is the significance of having difference distances?
+r_vec <- seq(0, 10000, by = 100) 
+ 
+# Define G function
+gfunction <- envelope(oil_counties_ppp, fun = Gest, r = r_vec, nsim = 10, nrank = 2) 
+```
+
+```{r}
+# Reformat for plotting
+gfunction_long <- gfunction %>% 
+  as.data.frame() %>% 
+  pivot_longer(cols = obs:hi, names_to = "model", values_to = "g_val") %>% 
+  mutate(model = case_when(
+          model == "hi" ~ "High",
+          model == 'lo' ~ 'Low',
+          model == 'obs' ~ 'Observed',
+          model == 'theo' ~ 'Theoretical'))
+```
+
+```{r}
+# Plot G function
+ggplot(data = gfunction_long, aes(x = r, y = g_val, group = model)) +
+  geom_line(aes(color = model)) +
+  theme_minimal() +
+  labs(x = "Distance", y = "G value", color = "Model")
+```
+
+**Figure 3:** This plot shows that oil spills are significantly more clustered than they would be under complete spatial randomness based on 10 iterations of a G function.
