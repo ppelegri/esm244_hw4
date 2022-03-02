@@ -2,11 +2,14 @@
 title: 'Task 1: Oil spills in CA (PELEGRI)'
 author: "Patrick Pelegri-O'Day"
 date: "3/1/2022"
-output: html_document
+output: 
+  html_document:
+    code_folding: hide 
+  
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 library(raster)
 library(tidyverse)
