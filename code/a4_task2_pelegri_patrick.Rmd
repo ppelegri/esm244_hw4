@@ -15,7 +15,12 @@ library(tidyverse)
 library(tsibble)
 library(feasts)
 library(slider)
+library(lubridate)
 ```
+
+# TO DO
+
+* Figure out why seasonplot isn't working
 
 ## Overall {.tabset}
 
@@ -27,14 +32,27 @@ Map of the fish ladder location (making map in R or include existing map appropr
 
 **Data citation:** 
 
-Read in the data
+Read in the data and perform initial wrangling
 ```{r}
-fish <- read_csv(here('data', 'willamette_fish_passage.csv'))
+fish_raw <- read_csv(here('data', 'willamette_fish_passage.csv'))
 
-fish_ts <- fish %>% 
+fish_ts <- fish_raw %>% 
   janitor::clean_names() %>% 
-  mutate(date = lubridate::mdy(date)) %>% 
-  as_tsibble(key = NULL, index = date) 
+  mutate(date = mdy(date)) %>% 
+  as_tsibble(key = NULL, index = date) %>%   
+  select(coho, jack_coho, steelhead, temp_c) %>% 
+  replace_na(list(coho = 0, jack_coho = 0, steelhead = 0)) %>%  # replace NA values with 0
+  pivot_longer( # so that we can visualize them all on the same panel
+    cols = coho:steelhead,
+    names_to = "species",
+    values_to = 'count'
+  ) %>% 
+  mutate(species = case_when(
+    species == 'coho' ~ "Coho",
+    species == 'jack_coho' ~ "Jack Coho",
+    species == 'steelhead' ~ "Steelhead"
+  ))
+  
 ```
 
 
@@ -44,9 +62,7 @@ Finalized, static graph of adult passage for coho, jack coho, and steelhead salm
 
 Prepare data for plotting
 ```{r}
-fish_sub_ts <- fish_ts %>% 
-  select(coho, jack_coho, steelhead, temp_c) %>% 
-  replace_na(list(coho = 0, jack_coho = 0, steelhead = 0)) %>% # replace NA values with 0
+fish_timeplot_ts <- fish_ts %>% 
   pivot_longer( # so that we can visualize them all on the same panel
     cols = coho:steelhead,
     names_to = "species",
@@ -61,12 +77,13 @@ fish_sub_ts <- fish_ts %>%
 
 Initial graph
 ```{r}
-ggplot(data = fish_sub_ts, aes(x = date, y = count)) +
+ggplot(data = fish_timeplot_ts, aes(x = date, y = count)) +
   geom_line(aes(color = species)) +
   labs(x = "Date",
        y = "Count",
        color = "Species") +
-  scale_color_manual(values = c('dodgerblue3', 'firebrick4', 'cornsilk4'))
+  scale_color_manual(values = c('dodgerblue3', 'firebrick4', 'cornsilk4')) +
+  theme_minimal()
 ```
 
 **Figure 1.** Time series plot of Coho, Jack Coho, and Steelhead counts at the Willamette Falls fish passage from 2001-2010.
@@ -79,8 +96,64 @@ ggplot(data = fish_sub_ts, aes(x = date, y = count)) +
 
 ### Seasonplots
 
-text
+Create seasonplot
+```{r}
+fish_seasonplot <- fish_ts %>% 
+  filter(year(date) == 2009) %>% 
+  gg_season(y = count) +
+  facet_wrap(~species)
+
+fish_seasonplot_ts
+```
+**Figure 2.** [Insert text]
+
+**Figure 2 takeaways**
+
+* sdf
 
 ### Annual counts by species
 
-text
+Prepare data for plot
+```{r}
+fish_counts_df <- fish_raw %>% 
+  
+  # This code repeats what we did to create fish_ts without making it a ts
+  janitor::clean_names() %>% 
+  mutate(date = mdy(date)) %>% 
+  select(coho, jack_coho, steelhead, date) %>% 
+  replace_na(list(coho = 0, jack_coho = 0, steelhead = 0)) %>%
+  pivot_longer( 
+    cols = coho:steelhead,
+    names_to = "species",
+    values_to = 'count'
+  ) %>% 
+  mutate(species = case_when(
+    species == 'coho' ~ "Coho",
+    species == 'jack_coho' ~ "Jack Coho",
+    species == 'steelhead' ~ "Steelhead"
+  )) %>% 
+  
+  # This code is for creating counts by year
+  mutate(year = year(date)) %>% 
+  select(-date) %>% 
+  group_by(year, species) %>% 
+  summarize(annual_count = sum(count))
+```
+
+Plot annual counts by species
+```{r}
+ggplot(fish_counts_df) +
+  geom_line(aes(x = year, y = annual_count, color = species)) +
+  scale_color_manual(values = c('dodgerblue3', 'firebrick4', 'cornsilk4')) +
+  theme_minimal() + 
+  scale_x_continuous(breaks = scales::pretty_breaks(5)) +
+  labs(x = "Year", y = 'Count', color = 'Species')
+```
+
+**Figure 3.** Annual counts of Coho, Jack Coho, and Steelhead at Willamette Falls fish passage from 2001 to 2010
+
+**Figure 3 takeaways**
+
+* Steelhead annual counts were the highest every year except 2009, but had a general downward trend.
+* Coho counts stayed relatively stable with some cyclical variation from 2001 to 2008, then roughly quadrupled in magnitude in 2009 and 2010.
+* Jack coho counts were the smallest of the three species and stayed relatively consistent from 2001 to 2010.
