@@ -1,0 +1,86 @@
+---
+title: 'Task 2: Time Series (PELEGRI)'
+author: "Patrick Pelegri-O'Day"
+date: "3/2/2022"
+output:
+  rmdformats::robobook:
+    code_folding: hide
+---
+
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(here)
+library(tidyverse)
+library(tsibble)
+library(feasts)
+library(slider)
+```
+
+## Overall {.tabset}
+
+[Engaging image with caption and photo credit]
+
+3-4 sentence summary of the dataset and what is included in the report
+
+Map of the fish ladder location (making map in R or include existing map appropriately licensed, with attribution)
+
+**Data citation:** 
+
+Read in the data
+```{r}
+fish <- read_csv(here('data', 'willamette_fish_passage.csv'))
+
+fish_ts <- fish %>% 
+  janitor::clean_names() %>% 
+  mutate(date = lubridate::mdy(date)) %>% 
+  as_tsibble(key = NULL, index = date) 
+```
+
+
+### Original time series
+
+Finalized, static graph of adult passage for coho, jack coho, and steelhead salmon. Replace NA values with 0.
+
+Prepare data for plotting
+```{r}
+fish_sub_ts <- fish_ts %>% 
+  select(coho, jack_coho, steelhead, temp_c) %>% 
+  replace_na(list(coho = 0, jack_coho = 0, steelhead = 0)) %>% # replace NA values with 0
+  pivot_longer( # so that we can visualize them all on the same panel
+    cols = coho:steelhead,
+    names_to = "species",
+    values_to = 'count'
+  ) %>% 
+  mutate(species = case_when(
+    species == 'coho' ~ "Coho",
+    species == 'jack_coho' ~ "Jack Coho",
+    species == 'steelhead' ~ "Steelhead"
+  ))
+```
+
+Initial graph
+```{r}
+ggplot(data = fish_sub_ts, aes(x = date, y = count)) +
+  geom_line(aes(color = species)) +
+  labs(x = "Date",
+       y = "Count",
+       color = "Species") +
+  scale_color_manual(values = c('dodgerblue3', 'firebrick4', 'cornsilk4'))
+```
+
+**Figure 1.** Time series plot of Coho, Jack Coho, and Steelhead counts at the Willamette Falls fish passage from 2001-2010.
+
+**Figure 1 takeaways**
+
+* The steelhead run has been the most consistent of the three species observed, and the steelhead run occurs at a different time of year than the coho and jack coho.
+* The coho run has been inconsistent from year to year but in large years has had the highest counts of the three species. The jack coho had the smallest runs of the three species on average. 
+* The jack coho and coho runs appear to occur at the same time of year.
+
+### Seasonplots
+
+text
+
+### Annual counts by species
+
+text
