@@ -18,10 +18,6 @@ library(slider)
 library(lubridate)
 ```
 
-# TO DO
-
-* Figure out why seasonplot isn't working
-
 ## Overall {.tabset}
 
 [Engaging image with caption and photo credit]
@@ -58,26 +54,9 @@ fish_ts <- fish_raw %>%
 
 ### Original time series
 
-Finalized, static graph of adult passage for coho, jack coho, and steelhead salmon. Replace NA values with 0.
-
-Prepare data for plotting
+Time series graph
 ```{r}
-fish_timeplot_ts <- fish_ts %>% 
-  pivot_longer( # so that we can visualize them all on the same panel
-    cols = coho:steelhead,
-    names_to = "species",
-    values_to = 'count'
-  ) %>% 
-  mutate(species = case_when(
-    species == 'coho' ~ "Coho",
-    species == 'jack_coho' ~ "Jack Coho",
-    species == 'steelhead' ~ "Steelhead"
-  ))
-```
-
-Initial graph
-```{r}
-ggplot(data = fish_timeplot_ts, aes(x = date, y = count)) +
+ggplot(data = fish_ts, aes(x = date, y = count)) +
   geom_line(aes(color = species)) +
   labs(x = "Date",
        y = "Count",
@@ -94,18 +73,16 @@ ggplot(data = fish_timeplot_ts, aes(x = date, y = count)) +
 * The coho run has been inconsistent from year to year but in large years has had the highest counts of the three species. The jack coho had the smallest runs of the three species on average. 
 * The jack coho and coho runs appear to occur at the same time of year.
 
-### Seasonplots
+### Season plots
 
-Create seasonplot
+Plot season plot
 ```{r}
-fish_seasonplot <- fish_ts %>% 
-  filter(year(date) == 2009) %>% 
-  gg_season(y = count) +
-  facet_wrap(~species)
-
-fish_seasonplot_ts
+gg_season(data = fish_ts, y = count) +
+  scale_color_viridis_c(breaks = c(0, 2, 4, 6, 8, 10), labels = c(2000, 2002, 2004, 2006, 2008, 2010)) +
+  facet_wrap(~species) +
+  labs(y = "Count", x = "Date", color = "Year")
 ```
-**Figure 2.** [Insert text]
+**Figure 2.** 
 
 **Figure 2 takeaways**
 
