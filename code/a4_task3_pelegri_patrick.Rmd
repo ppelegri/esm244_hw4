@@ -1,174 +1,87 @@
 ---
-title: "ask 3"
+title: 'Task 3: Text analysis (PELEGRI)'
 author: "Patrick Pelegri-O'Day"
-date: "3/1/2022"
+date: "3/6/2022"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(here)
+library(pdftools)
+library(tidytext)
+library(textdata)
+library(ggwordcloud)
+library(tm)
 ```
 
-inge anderson's talk
-24:09
-thank you so much and to you professor
-24:12
-husang li to you petri my colleague
-24:15
-of course abdullah moxie secretary of
-24:17
-ipcc and to the co-chairs dr debra
-24:20
-roberts and dr hans otto portner
-24:23
-and to the my amazing and formidable
-24:25
-ipcc scientific community and friends
-24:28
-greetings from nairobi we are in the
-24:31
-midst of united nations environment
-24:33
-assembly
-24:34
-which
-24:35
-gathers here to look at environmental
-24:38
-issues and this report comes
-24:40
-at a time of great turmoil when we need
-24:43
-strong multilateralism to promote peace
-24:45
-and healthy environment and the message
-24:47
-this report sends is clear
-24:49
-climate change isn't lurking around the
-24:51
-corner waiting to pounce it's already
-24:54
-already upon us raining down blows on
-24:57
-billions of people
-24:59
-we're seeing dangerous disruption across
-25:01
-the natural world
-25:03
-species are migrating in such more
-25:05
-livable conditions
-25:06
-in climate risk hot spots deaths from
-25:09
-floods droughts or storms were 15 times
-25:13
-higher than those in more resilient
-25:15
-countries over the last decade
-25:17
-this is climate injustice particularly
-25:21
-for indigenous people and local
-25:24
-communities
-25:25
-and all of this and more at only 1.1
-25:28
-degrees celsius of global warming
-25:30
-even if we limit global warming to 1.5
-25:33
-degrees celsius the blows will come
-25:36
-harder and faster
-25:38
-as things stand we're heading to closer
-25:40
-to three degrees celsius we are in an
-25:43
-emergency heading for a disaster
-25:47
-we can't keep taking these hits and
-25:50
-treating the wounds
-25:51
-soon those wounds would be too deep too
-25:54
-catastrophic to heal
-25:56
-we need to soften and slow the blows by
-26:00
-cutting greenhouse gas emissions but we
-26:02
-also need to cushion the blows by
-26:05
-picking up our efforts to adapt to
-26:07
-climate change which have been too weak
-26:10
-for too long
-26:11
-the best way to do this is to let nature
-26:14
-do the job it spends millions of years
-26:17
-perfecting absorbing and channeling rain
-26:20
-water and surging waves maintaining
-26:23
-biodiversity and balance in the soils so
-26:26
-that diverse plants can grow providing
-26:29
-cooling shade under leafy canopies
-26:33
-we need large-scale ecosystem
-26:35
-restoration from ocean to mountaintop
-26:38
-including through agreeing to start
-26:40
-negotiations on the global plastic
-26:42
-pollution agreement here in nairobi at
-26:45
-the fifth united nations environment
-26:47
-assembly we need to bring nature into
-26:50
-baking hot cities to keep them cool we
-26:53
-need to conserve mangroves coral reefs
-26:56
-and other nature's defenses we need to
-26:59
-protect and restore wetlands for nature
-27:02
-and incorporate wetlands into our cities
-27:06
-backing nature
-27:07
-is the best way to adapt to and to slow
-27:11
-climate change while providing jobs and
-27:14
-boosting economies
-27:16
-we must start dedicating thought and
-27:18
-funding to transformational adaptation
-27:21
-programs with nature at their heart
-27:24
-humanity has spent centuries treating
-27:27
-nature like its worst enemy
-27:30
-the truth is
-27:32
-that nature can be our savior
-27:35
-but only if we save it first thank you
+## Overview
+
+This report visualizes the most common words used at the press conference for the release of the most recent International Panel on Climate Change (IPCC) report. In addition, the report compares text sentiment for two speeches given by senior UN officials within the conference: UN Secretary General Antonio Guterres and United Nations Environment Programme director Inge Anderson. The speeches were recorded live on YouTube, and the speech text was obtained from YouTube's transcription feature.
+
+**Citation:** IPCC Press Conference - Climate Change 2022: Impacts, Adaptation, and Vulnerability. Recorded 2022-02-28. https://www.youtube.com/watch?v=JpK7eeYRhjQ
+
+## Setup
+
+Read in data
+```{r}
+ipcc_text <- pdf_text(here('data', 'ipcc_full.pdf'))
+anderson_text <- pdf_text(here('data', 'ipcc_anderson.pdf'))
+guterres_text <- pdf_text(here('data', 'ipcc_guterres.pdf'))
+```
+
+Initial wrangling
+```{r}
+anderson_words <- data.frame(anderson_text) %>% 
+  mutate(page = 1:n()) %>%
+  mutate(text_full = str_split(anderson_text, pattern = '\\n')) %>% 
+  unnest(text_full) %>% 
+  mutate(text_full = str_trim(text_full)) %>% 
+  unnest_tokens(word, text_full) %>% 
+  select(-anderson_text)
+```
+
+Remove stop words and numbers
+```{r}
+anderson_words_clean <- anderson_words %>% 
+  anti_join(stop_words, by = 'word') %>% 
+  filter(word != 'uh', word != 'dr') # removing common words that don't have significant meaning in this context
+
+anderson_words_clean$word <- gsub('[0-9.]', '', anderson_words_clean$word) # remove numeric symbols
+```
+
+
+Count word occurrence
+```{r}
+anderson_clean_count <- anderson_words_clean %>% 
+  count(word)
+```
+
+
+Create word clouds
+
+```{r}
+anderson_top50 <- anderson_clean_count %>% 
+  arrange(-n) %>% 
+  slice(1:50)
+```
+
+```{r}
+anderson_cloud <- 
+  ggplot(data = anderson_top50, aes(label = word)) +
+  geom_text_wordcloud(aes(color = n, size = n), shape = "diamond") +
+  scale_size_area(max_size = 30) +
+  scale_color_gradientn(colors = c("gold1","darkorange2","firebrick4")) +
+  theme_minimal()
+ 
+anderson_cloud
+
+```
+
+
+To-do
+
+* Re-do everything but sentiment with words in all the speeches
+* Perform sentiment analysis and visualize
