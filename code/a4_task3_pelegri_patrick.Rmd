@@ -80,6 +80,24 @@ anderson_cloud
 
 ```
 
+Sentiment analysis
+```{r}
+anderson_nrc <- anderson_words_clean %>% 
+  inner_join(get_sentiments("nrc"))
+```
+
+Let's find the count of words by chapter and sentiment bin: 
+
+```{r}
+anderson_nrc_counts <- anderson_nrc %>% 
+  count(sentiment)
+ 
+ 
+ggplot(data = anderson_nrc_counts, aes(x = sentiment, y = n)) +
+  geom_col()
+
+```
+
 
 To-do
 
