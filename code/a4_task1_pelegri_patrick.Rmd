@@ -109,7 +109,7 @@ oil_counties_ppp <- ppp(oil_ppp$x, oil_ppp$y, window = counties_win)
 Make the G function
 ```{r}
 # QUESTION: What is the significance of having difference distances?
-r_vec <- seq(0, 10000, by = 100) 
+r_vec <- seq(0, 11, by = 1) 
  
 # Define G function
 gfunction <- envelope(oil_counties_ppp, fun = Gest, r = r_vec, nsim = 10, nrank = 2) 

@@ -27,7 +27,10 @@ This report visualizes fish passage data at Willamette Falls collected by the Un
 
 **Data citation:** University of Washington, Columbia Basin Research. 2010. DART Adult Passage Graphics & Text. http://www.cbr.washington.edu/dart/query/adult_graph_text.
 
-![Arrow indicates location of Willamette Falls. From Clemens et al. 2017: https://doi.org/10.1007/s10750-017-3096-4](data/willamette_falls.png)
+<!-- ![Arrow indicates location of Willamette Falls. From Clemens et al. 2017: https://doi.org/10.1007/s10750-017-3096-4](data/willamette_falls.png) -->
+```{r fig.cap = Arrow indicates location of Willamette Falls. From Clemens et al. 2017: https://doi.org/10.1007/s10750-017-3096-4}
+knitr::include_graphics(here('data', 'willamette_falls.png'))
+```
 
 Read in the data and perform initial wrangling
 ```{r}

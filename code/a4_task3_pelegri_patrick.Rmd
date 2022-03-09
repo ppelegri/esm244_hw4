@@ -2,10 +2,13 @@
 title: 'Task 3: Text analysis (PELEGRI)'
 author: "Patrick Pelegri-O'Day"
 date: "3/6/2022"
-output: html_document
+output:
+  pdf_document: default
+  html_document:
+    code_folding: hide
 ---
 
-```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+```{r setup, include = TRUE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 library(tidyverse)
@@ -14,92 +17,184 @@ library(pdftools)
 library(tidytext)
 library(textdata)
 library(ggwordcloud)
-library(tm)
 ```
 
 ## Overview
 
-This report visualizes the most common words used at the press conference for the release of the most recent International Panel on Climate Change (IPCC) report. In addition, the report compares text sentiment for two speeches given by senior UN officials within the conference: UN Secretary General Antonio Guterres and United Nations Environment Programme director Inge Anderson. The speeches were recorded live on YouTube, and the speech text was obtained from YouTube's transcription feature.
+This report visualizes the most common words used by two senior UN officials at the press conference for the release of the most recent International Panel on Climate Change (IPCC) report: UN Secretary General Antonio Guterres and United Nations Environment Programme director Inger Andersen. Sentiment analysis of the speeches is also presented. The speeches were recorded live on YouTube, and the speech text was obtained from YouTube's transcription feature.
 
-**Citation:** IPCC Press Conference - Climate Change 2022: Impacts, Adaptation, and Vulnerability. Recorded 2022-02-28. https://www.youtube.com/watch?v=JpK7eeYRhjQ
+**Data Citation:** IPCC Press Conference - Climate Change 2022: Impacts, Adaptation, and Vulnerability. Recorded 2022-02-28. https://www.youtube.com/watch?v=JpK7eeYRhjQ
+
+**Citation for NRC lexicon**: Crowdsourcing a Word-Emotion Association Lexicon, Saif Mohammad and Peter Turney, Computational Intelligence, 29 (3), 436-465, 2013.
 
 ## Setup
 
 Read in data
 ```{r}
-ipcc_text <- pdf_text(here('data', 'ipcc_full.pdf'))
-anderson_text <- pdf_text(here('data', 'ipcc_anderson.pdf'))
+andersen_text <- pdf_text(here('data', 'ipcc_anderson.pdf'))
 guterres_text <- pdf_text(here('data', 'ipcc_guterres.pdf'))
 ```
 
 Initial wrangling
 ```{r}
-anderson_words <- data.frame(anderson_text) %>% 
+andersen_words <- data.frame(andersen_text) %>% 
   mutate(page = 1:n()) %>%
-  mutate(text_full = str_split(anderson_text, pattern = '\\n')) %>% 
+  mutate(text_full = str_split(andersen_text, pattern = '\\n')) %>% 
   unnest(text_full) %>% 
   mutate(text_full = str_trim(text_full)) %>% 
   unnest_tokens(word, text_full) %>% 
-  select(-anderson_text)
+  select(-andersen_text)
+
+guterres_words <- data.frame(guterres_text) %>% 
+  mutate(page = 1:n()) %>%
+  mutate(text_full = str_split(guterres_text, pattern = '\\n')) %>% 
+  unnest(text_full) %>% 
+  mutate(text_full = str_trim(text_full)) %>% 
+  unnest_tokens(word, text_full) %>% 
+  select(-guterres_text)
 ```
 
 Remove stop words and numbers
 ```{r}
-anderson_words_clean <- anderson_words %>% 
+andersen_words_clean <- andersen_words %>% 
   anti_join(stop_words, by = 'word') %>% 
-  filter(word != 'uh', word != 'dr') # removing common words that don't have significant meaning in this context
+  filter(word != 'uh', word != 'dr', word != 'g') # removing common words and typos that don't have significant meaning in this context
 
-anderson_words_clean$word <- gsub('[0-9.]', '', anderson_words_clean$word) # remove numeric symbols
+andersen_words_clean$word <- gsub('[0-9.]', '', andersen_words_clean$word) # remove numeric symbols
+
+guterres_words_clean <- guterres_words %>% 
+  anti_join(stop_words, by = 'word') %>% 
+  filter(word != 'uh', word != 'dr', word != 'g')
+
+guterres_words_clean$word <- gsub('[0-9.]', '', guterres_words_clean$word)
 ```
-
 
 Count word occurrence
 ```{r}
-anderson_clean_count <- anderson_words_clean %>% 
+andersen_clean_count <- andersen_words_clean %>% 
+  count(word)
+
+guterres_clean_count <- guterres_words_clean %>% 
   count(word)
 ```
-
 
 Create word clouds
 
 ```{r}
-anderson_top50 <- anderson_clean_count %>% 
+andersen_top50 <- andersen_clean_count %>% 
+  arrange(-n) %>% 
+  slice(1:50)
+
+guterres_top50 <- guterres_clean_count %>% 
   arrange(-n) %>% 
   slice(1:50)
 ```
 
 ```{r}
-anderson_cloud <- 
-  ggplot(data = anderson_top50, aes(label = word)) +
+andersen_cloud <- 
+  ggplot(data = andersen_top50, aes(label = word)) +
   geom_text_wordcloud(aes(color = n, size = n), shape = "diamond") +
   scale_size_area(max_size = 30) +
-  scale_color_gradientn(colors = c("gold1","darkorange2","firebrick4")) +
+  scale_color_gradientn(colors = c("lightskyblue3","royalblue1","royalblue4")) +
   theme_minimal()
- 
-anderson_cloud
+
+guterres_cloud <- 
+  ggplot(data = guterres_top50, aes(label = word)) +
+  geom_text_wordcloud(aes(color = n, size = n), shape = "diamond") +
+  scale_size_area(max_size = 30) +
+  scale_color_gradientn(colors = c("lightskyblue3","royalblue1","royalblue4")) +
+  theme_minimal()
 
 ```
+
+```{r}
+andersen_cloud
+```
+
+**Figure 1.** 50 most frequently used words in Inger Andersen's speech for the press conference of Part 2 of the IPCC's 6th Climate Assessment.
+
+```{r}
+guterres_cloud
+```
+
+**Figure 2.** 50 most frequently used words in António Guterres's speech for the press conference of Part 2 of the IPCC's 6th Climate Assessment.
+
+**Takeaways from comparing most frequently used words**
+
+* Guterres's speech seems to be more focused on energy; some of the most frequently used words are "energy", "coal", "fuel", and "emissions."  
+* By contrast, Andersen's speech is more focused on nature, using words like "nature", "environment", "biodiversity", and "conserve."
+* Guterres's speech also emphasizes large sociopolitical systems, while Andersen's speech focuses on personal, firsthand language. We see this through Guterres's discussion of "banks", "economy", "security", "finance", and "multilateral". 
+* Andersen, on the other hand, uses an extended metaphor of global warming as an assailant on humanity's unified body through words like "blows" and "wounds", and includes more human-scale, evocative, and softer language such as "communities", "agreeing", "channeling", "boosting," and "absorbing".
 
 Sentiment analysis
 ```{r}
-anderson_nrc <- anderson_words_clean %>% 
+andersen_nrc <- andersen_words_clean %>% 
   inner_join(get_sentiments("nrc"))
 ```
 
-Let's find the count of words by chapter and sentiment bin: 
-
 ```{r}
-anderson_nrc_counts <- anderson_nrc %>% 
-  count(sentiment)
- 
- 
-ggplot(data = anderson_nrc_counts, aes(x = sentiment, y = n)) +
-  geom_col()
-
+guterres_nrc <- guterres_words_clean %>% 
+  inner_join(get_sentiments("nrc"))
 ```
 
+```{r}
+andersen_nrc_counts <- andersen_nrc %>% 
+  count(sentiment) %>% 
+  mutate(speaker = 'Andersen')
 
-To-do
+guterres_nrc_counts <- guterres_nrc %>% 
+  count(sentiment) %>% 
+  mutate(speaker = 'Guterres')
 
-* Re-do everything but sentiment with words in all the speeches
-* Perform sentiment analysis and visualize
+combined_nrc_counts <- bind_rows(andersen_nrc_counts, guterres_nrc_counts)
+```  
+ 
+```{r} 
+ggplot(data = combined_nrc_counts, aes(x = sentiment, y = n)) +
+  scale_fill_manual(values = c("lightslategray","lightgoldenrod3")) +
+  geom_col(aes(fill = speaker), position = 'dodge', width = 0.7) +
+  labs(x = "Sentiment of words used", y = "Count of words used", fill = "Speaker") + 
+  theme_minimal()
+```
+
+**Figure 3.** Sentiment analysis of Andersen's and Guterres's speeches using NRC sentiment lexicon.
+
+**Takeaways from NRC sentiment analysis**
+
+* Guterres's speech scored higher on all measurements except positivity — both speeches were equally positive.
+* Andersen's speech had a higher ratio of positive language to negative language
+* Andersen's speech used more neutral language as measured by the NRC sentiment lexicon: Guterres's speech had more instances of language in almost every category, including positive sentiments such as joy and negative sentiments such as fear.
+
+Setup for AFINN sentiment comparison
+```{r}
+andersen_afinn <- andersen_words_clean %>% 
+  inner_join(get_sentiments("afinn"), by = 'word')
+
+guterres_afinn <- guterres_words_clean %>% 
+  inner_join(get_sentiments("afinn"), by = 'word')
+
+andersen_afinn_counts <- andersen_afinn %>% 
+  count(value) %>% 
+  mutate(speaker = 'Andersen')
+
+guterres_afinn_counts <- guterres_afinn %>% 
+  count(value) %>% 
+  mutate(speaker = 'Guterres')
+
+combined_afinn_counts <- bind_rows(andersen_afinn_counts, guterres_afinn_counts)
+```
+
+```{r}
+ggplot(data = combined_afinn_counts, aes(x = value, y = n)) +
+  scale_fill_manual(values = c("lightslategray","lightgoldenrod3")) +
+  geom_col(aes(fill = speaker), position = 'dodge', width = 0.7) +
+  labs(x = "Positivity and negativity of words used", y = "Count of words used", fill = "Speaker") + 
+  theme_minimal()
+```
+
+**Figure 4.** Sentiment analysis of Andersen's and Guterres's speeches using AFINN sentiment lexicon.
+
+**Takeaways from AFINN sentiment analysis**
+
+* Using AFINN lexicon sentiment analysis, we more clearly see the trend that Andersen's speech is more positive than Guterres's speech
+* We see that Guterres's speech is significantly more negative than positive in language used. Andersen's speech appears slightly more positive than negative.
